@@ -1,0 +1,4 @@
+digraph BST {
+  node [shape=record, style=filled, fillcolor="#E6E6FF"];
+  "0x5af563028ac0" [label="{P1xFZ9kQa1Je | 12.11.2024}"];
+}
