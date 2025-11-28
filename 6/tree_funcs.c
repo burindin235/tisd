@@ -1,12 +1,15 @@
 #include "tree_funcs.h"
 
+static void collect_for_removal_recursive(node *curr, const char *cutoff_date, char (*names_to_delete)[STR_LEN], int *count);
+static void store_inorder_ptr(node* root, node_array_t *array);
+static node* build_balanced_bst(node_array_t *array, int start, int end);
+static node* create_right_skewed_tree(int count);
+
 int date_to_int(const char *date) {
     int d, m, y;
     if (sscanf(date, "%d.%d.%d", &d, &m, &y) != 3) {
-        // Вернуть минимальное значение в случае ошибки парсинга
         return 0; 
     }
-    // Формат YYYYMMDD для корректного численного сравнения
     return y * 10000 + m * 100 + d;
 }
 
@@ -197,7 +200,6 @@ static void collect_nodes_to_delete(node *root, const char *cutoff, char list[][
     if (root == NULL) return;
     collect_nodes_to_delete(root->left, cutoff, list, count);
     
-    // Используем compare_dates_chrono для корректного сравнения дат
     if (*count < MAX_NODES && compare_dates_chrono(root->date, cutoff) < 0) { 
         strncpy(list[*count], root->filename, STR_LEN - 1);
         list[*count][STR_LEN - 1] = '\0';
@@ -207,27 +209,24 @@ static void collect_nodes_to_delete(node *root, const char *cutoff, char list[][
     collect_nodes_to_delete(root->right, cutoff, list, count);
 }
 
-void run_scenario_1(node *root, const char *cutoff_date, double *time_taken) {
+void run_scenario_1(node **root, const char *cutoff_date, double *time_taken) {
     clock_t start = clock();
     static char names_to_delete[MAX_NODES][STR_LEN];
     int count = 0;
 
-    collect_nodes_to_delete(root, cutoff_date, names_to_delete, &count);
+    collect_nodes_to_delete(*root, cutoff_date, names_to_delete, &count);
 
     for (int i = 0; i < count; i++) {
-        root = delete_node(root, names_to_delete[i]);
+        *root = delete_node(*root, names_to_delete[i]);
     }
 
     clock_t end = clock();
     *time_taken = (double)(end - start) / CLOCKS_PER_SEC;
-    
-    printf("Сценарий 1: Найдено и удалено %d старых файлов (из копии).\n", count);
 }
 
 int compare_dates(const void *a, const void *b) {
     node *node_a = *(node**)a;
     node *node_b = *(node**)b;
-    // Используем compare_dates_chrono для корректной сортировки по дате
     return compare_dates_chrono(node_a->date, node_b->date); 
 }
 
@@ -252,67 +251,38 @@ static node* build_balanced_bst(node_array_t *array, int start, int end) {
     return root;
 }
 
-node* run_scenario_2(node *root_old, const char *cutoff_date, double *time_taken) {
+int compare_filenames_for_qsort(const void *a, const void *b) {
+    node *node_a = *(node**)a;
+    node *node_b = *(node**)b;
+    return strcmp(node_a->filename, node_b->filename);
+}
+
+node* run_scenario_2(node *root_old, const char *cutoff_date, double *time_taken) 
+{
     clock_t start = clock();
     node_array_t array = { .count = 0 };
-
+    
     store_inorder_ptr(root_old, &array);
 
-    qsort(array.arr, array.count, sizeof(node*), compare_dates);
-
-    int i = 0;
-    int deleted_count = 0;
-    // Используем compare_dates_chrono для корректного сравнения
-    while (i < array.count && compare_dates_chrono(array.arr[i]->date, cutoff_date) < 0) {
-        free(array.arr[i]);
-        deleted_count++;
-        i++;
-    }
-
-    int new_count = array.count - deleted_count;
-    node *new_root = NULL;
+    qsort(array.arr, array.count, sizeof(node*), compare_filenames_for_qsort); 
     
-    if (new_count > 0) {
-        node_array_t fresh_array = { .count = new_count };
-        for (int j = 0; j < new_count; j++) {
-            fresh_array.arr[j] = array.arr[i + j];
-        }
-        new_root = build_balanced_bst(&fresh_array, 0, new_count - 1);
+    node *new_root = NULL;
+    if (array.count > 0) {
+        new_root = build_balanced_bst(&array, 0, array.count - 1);
     }
-
+    
+    char names_to_delete[MAX_NODES][STR_LEN];
+    int count = 0;
+    collect_for_removal_recursive(new_root, cutoff_date, names_to_delete, &count); 
+    
+    for (int i = 0; i < count; i++) {
+        new_root = delete_node(new_root, names_to_delete[i]); 
+    }
+    
     clock_t end = clock();
     *time_taken = (double)(end - start) / CLOCKS_PER_SEC;
-    printf("Сценарий 2: Перестроено. Удалено %d файлов.\n", deleted_count);
     
     return new_root; 
-}
-
-// --- ТЕСТЫ ЭФФЕКТИВНОСТИ (МЕНЮ 6 и 8) ---
-
-static node* create_linked_list_tree(int count) {
-    node *root = NULL;
-    char name[STR_LEN];
-    char date[STR_LEN];
-    
-    for (int i = 0; i < count; i++) {
-        sprintf(name, "File_%05d", i);
-        sprintf(date, "01.01.2020");
-        root = insert_node(root, name, date);
-    }
-    return root;
-}
-
-node* create_balanced_tree(int count) {
-    node *root = NULL;
-    char name[STR_LEN];
-    char date[STR_LEN];
-    
-    for (int i = 0; i < count; i++) {
-        sprintf(name, "File_%05d_%d", rand() % (count * 10), i);
-        sprintf(date, "01.01.2020");
-        root = insert_node(root, name, date);
-    }
-    return root;
 }
 
 static double measure_search_time(node *root, int iterations, int node_count, int degenerate_type) {
@@ -323,13 +293,10 @@ static double measure_search_time(node *root, int iterations, int node_count, in
     
     for (int k = 0; k < iterations; k++) {
         if (degenerate_type == 0) {
-             // Тип 0: Сбалансированное дерево (ищем случайный элемент)
              sprintf(search_name, "File_%05d_%d", rand() % (node_count * 10), rand() % node_count);
         } else if (degenerate_type == 1) {
-             // Тип 1: Право-скошенное дерево (ищем самый глубокий элемент: N-1)
              sprintf(search_name, "File_%05d", node_count - 1);
         } else if (degenerate_type == 2) {
-             // Тип 2: Лево-скошенное дерево (ищем самый глубокий элемент: 0)
              sprintf(search_name, "File_%05d", 0);
         }
         search_node(root, search_name);
@@ -342,7 +309,6 @@ static double measure_search_time(node *root, int iterations, int node_count, in
 void inorder_no_print(node* current) {
     if (current != NULL) {
         inorder_no_print(current->left);
-        // Фактически ничего не делаем, кроме доступа к данным
         (void)current->filename; 
         inorder_no_print(current->right);
     }
@@ -353,15 +319,11 @@ static double measure_inorder_time(node *root) {
     
     clock_t start = clock();
     
-    // Временная функция для обхода без вывода на экран
     inorder_no_print(root);
     
     clock_t end = clock();
     return (double)(end - start) / CLOCKS_PER_SEC;
 }
-
-
-// --- СРАВНЕНИЕ ЭФФЕКТИВНОСТИ СОРТИРОВКИ (НОВАЯ ФУНКЦИЯ) ---
 
 static void run_sorting_comparison() {
     int N_values[] = {100, 500, 1000, 5000, 10000};
@@ -376,12 +338,9 @@ static void run_sorting_comparison() {
     for (int i = 0; i < num_sizes; i++) {
         int N = N_values[i];
         
-        // 1. Создание вырожденного дерева (Правостороннее)
         node *degenerate_root = create_right_skewed_tree(N); 
-        // 2. Создание сбалансированного дерева (Случайная вставка)
         node *balanced_root = create_balanced_tree(N);
         
-        // Замеряем время обхода (чтения отсортированного списка)
         double t_degenerate = measure_inorder_time(degenerate_root);
         double t_balanced = measure_inorder_time(balanced_root); 
         
@@ -404,6 +363,32 @@ static void run_sorting_comparison() {
     printf("--------------------------------------------------------------------------------------\n");
 }
 
+node* create_linked_list_tree(int count) {
+    node *root = NULL;
+    char name[STR_LEN];
+    char date[STR_LEN];
+    
+    for (int i = 0; i < count; i++) {
+        sprintf(name, "File_%05d", i);
+        sprintf(date, "01.01.2020");
+        root = insert_node(root, name, date);
+    }
+    return root;
+}
+
+node* create_balanced_tree(int count) {
+    node *root = NULL;
+    char name[STR_LEN];
+    char date[STR_LEN];
+    
+    for (int i = 0; i < count; i++) {
+        sprintf(name, "File_%05d_%d", rand() % (count * 10), i); 
+        sprintf(date, "01.01.2020");
+        root = insert_node(root, name, date);
+    }
+    return root;
+}
+
 void run_efficiency_test() {
     int N_values[] = {100, 500, 1000, 5000, 10000};
     int I_values[] = {100, 100, 100, 20, 10};
@@ -419,12 +404,9 @@ void run_efficiency_test() {
         int N = N_values[i];
         int I = I_values[i];
         
-        // 1. Создание вырожденного дерева (Right-skewed)
         node *degenerate_root = create_linked_list_tree(N);
-        // 2. Создание сбалансированного (случайного) дерева
         node *balanced_root = create_balanced_tree(N);
         
-        // Измерение: 1 - вырожденное (ищет глубокий элемент), 0 - сбалансированное (ищет случайный)
         double t_degenerate = measure_search_time(degenerate_root, I, N, 1);
         double t_balanced = measure_search_time(balanced_root, I, N, 0); 
         
@@ -432,10 +414,8 @@ void run_efficiency_test() {
         char diff_str[30];
         
         if (diff > 1.05) {
-            // Вырожденное дерево медленнее
             sprintf(diff_str, "Выр. > в %.2f", diff);
         } else if (diff < 0.95) {
-            // Сбалансированное дерево медленнее (маловероятно в этом тесте)
             sprintf(diff_str, "Сбалан. > в %.2f", 1.0 / diff);
         } else {
             sprintf(diff_str, "Схожи");
@@ -447,7 +427,6 @@ void run_efficiency_test() {
         destroy_tree(balanced_root);
     }
     printf("----------------------------------------------------------------------------------\n");
-
 
     run_sorting_comparison();
 }
@@ -478,6 +457,17 @@ static node* create_right_skewed_tree(int count) {
     return root;
 }
 
+static void collect_for_removal_recursive(node *curr, const char *cutoff_date, char (*names_to_delete)[STR_LEN], int *count) {
+    if (curr == NULL) return;
+    collect_for_removal_recursive(curr->left, cutoff_date, names_to_delete, count);
+    
+    if (*count < MAX_NODES && compare_dates_chrono(curr->date, cutoff_date) < 0) {
+        strncpy(names_to_delete[*count], curr->filename, STR_LEN - 1);
+        names_to_delete[*count][STR_LEN - 1] = '\0';
+        (*count)++;
+    }
+    collect_for_removal_recursive(curr->right, cutoff_date, names_to_delete, count);
+}
 
 void run_skewed_comparison() {
     int N_values[] = {100, 500, 1000, 5000, 10000};
@@ -494,14 +484,11 @@ void run_skewed_comparison() {
         int N = N_values[i];
         int I = I_values[i];
         
-        // 1. Создание правостороннего дерева
         node *right_root = create_right_skewed_tree(N);
-        // 2. Создание левостороннего дерева
         node *left_root = create_left_skewed_tree(N);
         
-        // Замеряем время поиска самого глубокого элемента в каждом типе (O(N) шагов)
-        double t_right = measure_search_time(right_root, I, N, 1); // Ищем N-1
-        double t_left = measure_search_time(left_root, I, N, 2);   // Ищем 0
+        double t_right = measure_search_time(right_root, I, N, 1);
+        double t_left = measure_search_time(left_root, I, N, 2);
         
         double diff = t_right / (t_left + 1e-9);
         char diff_str[30];
@@ -520,21 +507,6 @@ void run_skewed_comparison() {
         destroy_tree(left_root);
     }
     printf("------------------------------------------------------------------------\n");
-}
-
-
-static void collect_for_removal_recursive(node *curr, const char *cutoff_date, char (*names_to_delete)[STR_LEN], int *count) {
-    if (curr == NULL) return;
-    collect_for_removal_recursive(curr->left, cutoff_date, names_to_delete, count);
-    
-    // Используем compare_dates_chrono для корректного сравнения дат
-    if (*count < MAX_NODES && compare_dates_chrono(curr->date, cutoff_date) < 0) {
-        strncpy(names_to_delete[*count], curr->filename, STR_LEN - 1);
-        names_to_delete[*count][STR_LEN - 1] = '\0';
-        (*count)++;
-    }
-    
-    collect_for_removal_recursive(curr->right, cutoff_date, names_to_delete, count);
 }
 
 void remove_files_by_date_interactive(node **root, const char *cutoff_date) {
@@ -577,30 +549,22 @@ void remove_files_by_date_interactive(node **root, const char *cutoff_date) {
 static void write_dot_nodes(node *current, FILE *fp) {
     if (current == NULL) return;
 
-    // Использование адреса узла в качестве уникального идентификатора в DOT.
-    // Узел: [address] [label="{filename | date}"]
-    // shape=record позволяет создавать поля (порты) для связей.
     fprintf(fp, "  \"%p\" [label=\"{%s | %s}\"];\n", 
             (void*)current, current->filename, current->date);
 
     if (current->left != NULL) {
-        // Связь влево: [parent_addr] -> [child_addr]
         fprintf(fp, "  \"%p\" -> \"%p\" [label=\"L\"];\n", 
                 (void*)current, (void*)current->left);
         write_dot_nodes(current->left, fp);
     }
 
     if (current->right != NULL) {
-        // Связь вправо: [parent_addr] -> [child_addr]
         fprintf(fp, "  \"%p\" -> \"%p\" [label=\"R\"];\n", 
                 (void*)current, (void*)current->right);
         write_dot_nodes(current->right, fp);
     }
 }
 
-/**
- * @brief Генерирует текстовое описание дерева в формате DOT.
- */
 static void generate_dot_file(node *root, const char *filename) {
     FILE *fp = fopen(filename, "w");
     if (fp == NULL) {
@@ -608,24 +572,15 @@ static void generate_dot_file(node *root, const char *filename) {
         return;
     }
 
-    // Заголовок и общие настройки
     fprintf(fp, "digraph BST {\n");
     fprintf(fp, "  node [shape=record, style=filled, fillcolor=\"#E6E6FF\"];\n"); 
     
-    // Запускаем рекурсивный обход
     write_dot_nodes(root, fp);
     
-    // Закрытие DOT-файла
     fprintf(fp, "}\n");
     fclose(fp);
 }
 
-/**
- * @brief Главная функция для визуализации дерева. 
- * Генерирует DOT-файл и вызывает утилиту 'dot' для создания PNG.
- * @param root Корень дерева.
- * @param base_filename Базовое имя файла (например, "my_tree").
- */
 void visualize_tree_with_graphviz(node *root, const char *base_filename) {
     if (root == NULL) {
         printf("Дерево пусто, визуализация невозможна.\n");
@@ -636,15 +591,12 @@ void visualize_tree_with_graphviz(node *root, const char *base_filename) {
     char png_filename[256];
     char command[512];
     
-    // Формирование имен файлов
     sprintf(dot_filename, "%s.dot", base_filename);
     sprintf(png_filename, "%s.png", base_filename);
 
-    // 1. Создание DOT-файла
     printf("\n-> Генерируется DOT-файл: %s\n", dot_filename);
     generate_dot_file(root, dot_filename);
     
-    // 2. Формирование и запуск команды Graphviz
     sprintf(command, "dot -Tpng %s -o %s", dot_filename, png_filename);
 
     printf("-> Выполняется команда Graphviz:\n   %s\n", command);
@@ -662,22 +614,16 @@ void visualize_tree_with_graphviz(node *root, const char *base_filename) {
 static void write_nodes_to_txt_recursive(node *current, FILE *fp) {
     if (current == NULL) return;
 
-    // Inorder: Лево -> Корень -> Право. Запись данных в отсортированном виде.
     write_nodes_to_txt_recursive(current->left, fp);
     
-    // Запись данных текущего узла в формате: "ИмяФайла, Дата\n"
     fprintf(fp, "%s, %s\n", current->filename, current->date);
     
     write_nodes_to_txt_recursive(current->right, fp);
 }
 
-/**
- * @brief Сохраняет данные из дерева в текстовый файл с расширением .txt.
- */
 void save_tree_to_txt(node *root, const char *base_filename) {
     char txt_filename[256];
     
-    // Формирование имени файла: [базовое_имя].txt
     sprintf(txt_filename, "%s.txt", base_filename);
     
     FILE *fp = fopen(txt_filename, "w");
@@ -688,9 +634,149 @@ void save_tree_to_txt(node *root, const char *base_filename) {
     
     printf("-> Сохраняются данные в текстовый файл: %s\n", txt_filename);
     
-    // Запуск рекурсивного сохранения
     write_nodes_to_txt_recursive(root, fp);
     
     fclose(fp);
     printf("Данные дерева успешно сохранены.\n");
+}
+
+node* create_test_tree_with_dates(int count) {
+    node *root = NULL;
+    char name[STR_LEN];
+    char date[STR_LEN];
+    
+    for (int i = 1; i <= count; i++) {
+        sprintf(name, "File_%03d_%d", rand() % (count * 10), i);
+        
+        int sequential_day = (i - 1) % 30 + 1;
+        int sequential_month = (i - 1) / 30 + 1;
+        
+        sprintf(date, "%02d.%02d.2001", sequential_day, sequential_month); 
+        
+        root = insert_node(root, name, date);
+    }
+    return root;
+}
+
+void get_cutoff_date(int N, int k, char *cutoff_date) {
+    if (k < N) {
+        int cutoff_index = k + 1;
+        int cutoff_day = (cutoff_index - 1) % 30 + 1; 
+        int cutoff_month = (cutoff_index - 1) / 30 + 1;
+        sprintf(cutoff_date, "%02d.%02d.2001", cutoff_day, cutoff_month);
+    } else { 
+        sprintf(cutoff_date, "01.01.3000"); 
+    }
+}
+
+node* create_worst_case_tree(int count) {
+    node *root = NULL;
+    char name[STR_LEN];
+    char date[STR_LEN];
+    
+    for (int i = 1; i <= count; i++) {
+        sprintf(name, "FileA_%05d", i); 
+        
+        int sequential_day = (i - 1) % 30 + 1;
+        int sequential_month = (i - 1) / 30 + 1;
+        sprintf(date, "%02d.%02d.2001", sequential_day, sequential_month); 
+        
+        root = insert_node(root, name, date);
+    }
+    return root;
+}
+
+static node* create_worst_case_tree_smart(int total_N, int files_to_delete) {
+    node *root = NULL;
+    char name[STR_LEN];
+    char date[STR_LEN];
+    
+    for (int i = 0; i < total_N; i++) {
+        sprintf(name, "File_%05d", i); 
+        
+        if (i >= (total_N - files_to_delete)) {
+            sprintf(date, "01.01.2000");
+        } else {
+            sprintf(date, "01.01.2030");
+        }
+        
+        root = insert_node(root, name, date);
+    }
+    return root;
+}
+
+void run_scenario_comparison_test() {
+    int N_values[] = {100, 1000, 5000}; 
+    int num_N = sizeof(N_values) / sizeof(int);
+    
+    const char *TEST_CUTOFF = "01.01.2001"; 
+    
+    char cutoff_dyn[STR_LEN]; 
+
+    char *test_names[] = {"СЛУЧАЙНОЕ (Average)", "ВЫРОЖДЕННОЕ (Worst: Удаление снизу)"};
+    
+    for (int test_type = 0; test_type < 2; test_type++) {
+        printf("\n\n=== %s ===\n", test_names[test_type]);
+        printf("| %-7s | %-7s | %-12s | %-12s | %-15s |\n", "N", "K", "T1 (In-place)", "T2 (Rebuild)", "Result");
+        printf("|---------|---------|--------------|--------------|-----------------|\n");
+
+        for (int i_N = 0; i_N < num_N; i_N++) {
+            int N = N_values[i_N];
+            
+            int REPEAT_COUNT = (N == 5000) ? 5 : 10; 
+            
+            for (int step = 1; step <= 10; step++) {
+                int k = (N * step) / 10;
+                
+                double total_t1 = 0.0;
+                double total_t2 = 0.0;
+                
+                node *base_root = NULL;
+
+                if (test_type == 0) {
+                    base_root = create_test_tree_with_dates(N);
+                    if (k==N) sprintf(cutoff_dyn, "01.01.3000");
+                    else {
+                        int day = (k % 30) + 1; int month = (k / 30) + 1;
+                        sprintf(cutoff_dyn, "%02d.%02d.2001", day, month);
+                    }
+                } 
+                else {
+                    base_root = create_worst_case_tree_smart(N, k);
+                    strncpy(cutoff_dyn, TEST_CUTOFF, STR_LEN); 
+                }
+                
+                for (int r = 0; r < REPEAT_COUNT; r++) {
+                    double t1_single, t2_single;
+                    
+                    node *copy1 = copy_tree(base_root);
+                    run_scenario_1(&copy1, cutoff_dyn, &t1_single);
+                    destroy_tree(copy1);
+                    total_t1 += t1_single;
+
+                    node *copy2 = copy_tree(base_root);
+                    node *res2 = run_scenario_2(copy2, cutoff_dyn, &t2_single);
+                    
+                    if (res2 != NULL) {
+                        destroy_tree(res2); 
+                    } 
+                    
+                    total_t2 += t2_single;
+                }
+                
+                destroy_tree(base_root);
+                
+                double t1_avg = total_t1 / REPEAT_COUNT;
+                double t2_avg = total_t2 / REPEAT_COUNT;
+
+                char cmp[30];
+                if (t1_avg > t2_avg * 1.1) sprintf(cmp, "T2 faster %.1fx", t1_avg/t2_avg);
+                else if (t2_avg > t1_avg * 1.1) sprintf(cmp, "T1 faster %.1fx", t2_avg/t1_avg);
+                else sprintf(cmp, "Similar");
+
+                printf("| %-7d | %-7d | %-12.6f | %-12.6f | %-15s |\n", N, k, t1_avg, t2_avg, cmp);
+            }
+            printf("|---------|---------|--------------|--------------|-----------------|\n");
+        }
+    }
 }

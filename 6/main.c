@@ -31,6 +31,7 @@ void print_menu() {
     printf("6. Тест эффективности (Список vs Дерево)\n");
     printf("7. Очистка старых файлов (Удалить из дерева по дате)\n");
     printf("8. Сравнение правосторонних/левосторонних деревьев\n");
+    printf("10. КОМПЛЕКСНЫЙ ТЕСТ (N=100, K=10..100)\n");
     printf("9. Выход\n");
     printf("Ваш выбор: ");
 }
@@ -110,40 +111,24 @@ int main() {
                     break;
                 }
                 
+                // Используем фиксированное имя файла для сохранения
                 char filename[STR_LEN] = "tree";
-                /*
-                // --- 1. Ввод и валидация имени файла ---
-                while (1) {
-                    printf("\nВведите БАЗОВОЕ название файла (без расширения для .txt и .png): ");
-                    
-                    get_string_input(filename, STR_LEN);
-                    
-                    if (strlen(filename) == 0) {
-                        printf("Ошибка: Имя файла не может быть пустым. Повторите ввод.\n");
-                        continue;
-                    }
-
-                    if (has_extension(filename)) {
-                        printf("Ошибка: Пожалуйста, введите название файла БЕЗ расширения (символ '.' запрещен).\n");
-                        continue; // Повторяем ввод
-                    }
-                    
-                    break; // Имя файла корректно, выходим из цикла
-                } */
-
-                // --- 2. Сохранение текстовой информации (.txt) ---
-                // Файл перезаписывается, как требовалось (режим "w" в save_tree_to_txt)
+                
+                printf("\nСохранение информации о дереве:\n");
+                // 1. Сохранение текстовой информации (.txt)
                 save_tree_to_txt(root, filename);
                 
-                // --- 3. Создание визуализации Graphviz (.png) ---
-                // Файл перезаписывается, как требовалось (режим "w" в generate_dot_file)
+                // 2. Создание визуализации Graphviz (.png)
+                // 
                 visualize_tree_with_graphviz(root, filename);
+                break;
             }
-            break;
 
-            case 2: add_file_menu(&root); break;
+            case 2: // Добавить файл
+                add_file_menu(&root); 
+                break;
 
-            case 3:
+            case 3: // Удалить файл (по имени)
                 if (root == NULL) { printf("Ошибка: Дерево пусто.\n"); break; }
                 printf("\nВведите имя файла для удаления: ");
                 get_string_input(buffer_name, STR_LEN);
@@ -155,12 +140,12 @@ int main() {
                 }
                 break;
 
-            case 4:
+            case 4: // Обход дерева (список файлов)
                 if (root == NULL) { printf("Дерево пусто.\n"); } 
                 else { printf("\n--- Список файлов ---\n"); inorder_traversal(root); }
                 break;
 
-            case 5:
+            case 5: // Сравнение сценариев (Ручной тест)
                 if (root == NULL) { printf("Ошибка: Заполните дерево данными для теста.\n"); break; }
                 printf("\nВведите контрольную дату (DD.MM.YYYY, удалить файлы старее чем): ");
                 get_string_input(buffer_date, STR_LEN);
@@ -175,7 +160,8 @@ int main() {
                 double t1, t2;
 
                 printf("1. Сценарий 1 (Удаление на месте в алфавитном дереве)...\n");
-                run_scenario_1(copy1, buffer_date, &t1);
+                // ИСПРАВЛЕНО: Передаем &copy1 (указатель на указатель)
+                run_scenario_1(&copy1, buffer_date, &t1); 
                 
                 printf("2. Сценарий 2 (Перестроение по дате + удаление)...\n");
                 node *res2 = run_scenario_2(copy2, buffer_date, &t2); 
@@ -184,15 +170,15 @@ int main() {
                 printf("Время Сценария 1: %.6f сек\n", t1);
                 printf("Время Сценария 2: %.6f сек\n", t2);
                 
-                destroy_tree(copy1);
+                destroy_tree(copy1); // copy1 теперь указывает на актуальный корень
                 destroy_tree(res2);
                 break;
 
-            case 6: run_efficiency_test(); break;
+            case 6: // Тест эффективности
+                run_efficiency_test(); 
+                break;
             
-            case 8: run_skewed_comparison(); break;
-
-            case 7:
+            case 7: // Очистка старых файлов (Удалить из текущего дерева)
                 if (root == NULL) {
                     printf("Ошибка: Дерево пусто.\n");
                     break;
@@ -210,34 +196,19 @@ int main() {
                 remove_files_by_date_interactive(&root, buffer_date);
                 break;
 
-            case 9: 
+            case 8: // Сравнение скошенных деревьев
+                run_skewed_comparison(); 
+                break;
+
+            case 9: // Выход
                 destroy_tree(root);
-                printf("Память очищена. \n");
+                printf("Память очищена. Программа завершена.\n");
+                return 0;
+
+            case 10: // Комплексный тест (N=100, K=10..100)
+                run_scenario_comparison_test(); 
                 break;
-
-            case 10:
-                printf("тест кейс 10");
-                node *generated_tree = create_balanced_tree(10);
-                node *copy3 = copy_tree(generated_tree);
-                node *copy4 = copy_tree(generated_tree);
-
-                double t3, t4;
-                char buffer_date_2[20] = "01.01.2000";
-
-                printf("1. Сценарий 1 (Удаление на месте в алфавитном дереве)...\n");
-                run_scenario_1(copy3, buffer_date_2, &t3);
                 
-                printf("2. Сценарий 2 (Перестроение по дате + удаление)...\n");
-                node *res3 = run_scenario_2(copy4, buffer_date_2, &t4); 
-                
-                printf("\nРезультаты:\n");
-                printf("Время Сценария 1: %.6f сек\n", t3);
-                printf("Время Сценария 2: %.6f сек\n", t4);
-                
-                destroy_tree(copy3);
-                destroy_tree(res3);
-                
-                break;
             default: 
                 printf("Ошибка: Неверный пункт меню.\n");
         }
