@@ -212,10 +212,34 @@ int main() {
 
             case 9: 
                 destroy_tree(root);
-                printf("Память очищена. Программа завершена.\n");
-                return 0;
+                printf("Память очищена. \n");
+                break;
 
-            default: printf("Ошибка: Неверный пункт меню.\n");
+            case 10:
+                printf("тест кейс 10");
+                node *generated_tree = create_balanced_tree(10);
+                node *copy3 = copy_tree(generated_tree);
+                node *copy4 = copy_tree(generated_tree);
+
+                double t3, t4;
+                char buffer_date_2[20] = "01.01.2000";
+
+                printf("1. Сценарий 1 (Удаление на месте в алфавитном дереве)...\n");
+                run_scenario_1(copy3, buffer_date_2, &t3);
+                
+                printf("2. Сценарий 2 (Перестроение по дате + удаление)...\n");
+                node *res3 = run_scenario_2(copy4, buffer_date_2, &t4); 
+                
+                printf("\nРезультаты:\n");
+                printf("Время Сценария 1: %.6f сек\n", t3);
+                printf("Время Сценария 2: %.6f сек\n", t4);
+                
+                destroy_tree(copy3);
+                destroy_tree(res3);
+                
+                break;
+            default: 
+                printf("Ошибка: Неверный пункт меню.\n");
         }
     }
     return 0;
