@@ -21,6 +21,23 @@ void get_string_input(char *buffer, int size) {
     }
 }
 
+void preorder_traversal(node* root) {
+    if (root != NULL) {
+        printf("Файл: %-20s | Дата: %s\n", root->filename, root->date);
+        preorder_traversal(root->left);
+        preorder_traversal(root->right);
+    }
+}
+
+void postorder_traversal(node* root) {
+    if (root != NULL) {
+        postorder_traversal(root->left);
+        postorder_traversal(root->right);
+        printf("Файл: %-20s | Дата: %s\n", root->filename, root->date);
+    }
+}
+
+
 void print_menu() {
     printf("\n=== МЕНЮ ФАЙЛОВОЙ СИСТЕМЫ (BST) ===\n");
     printf("1. Вывести текущее дерево (Графически)\n");
@@ -31,8 +48,8 @@ void print_menu() {
     printf("6. Тест эффективности (Список vs Дерево)\n");
     printf("7. Очистка старых файлов (Удалить из дерева по дате)\n");
     printf("8. Сравнение правосторонних/левосторонних деревьев\n");
-    printf("10. КОМПЛЕКСНЫЙ ТЕСТ (N=100, K=10..100)\n");
-    printf("9. Выход\n");
+    printf("9. Сравнение методов удаления\n");
+    printf("10. Выход\n");
     printf("Ваш выбор: ");
 }
 
@@ -142,7 +159,16 @@ int main() {
 
             case 4: // Обход дерева (список файлов)
                 if (root == NULL) { printf("Дерево пусто.\n"); } 
-                else { printf("\n--- Список файлов ---\n"); inorder_traversal(root); }
+                else { 
+                    printf("\n=== ПРЕФИКСНЫЙ ОБХОД (сверху вниз) ===\n");
+                    preorder_traversal(root);
+                    
+                    printf("\n=== ИНФИКСНЫЙ ОБХОД (слева направо) ===\n");
+                    inorder_traversal(root);
+                    
+                    printf("\n=== ПОСТФИКСНЫЙ ОБХОД (снизу вверх) ===\n");
+                    postorder_traversal(root);
+                }
                 break;
 
             case 5: // Сравнение сценариев (Ручной тест)
@@ -200,14 +226,16 @@ int main() {
                 run_skewed_comparison(); 
                 break;
 
-            case 9: // Выход
+
+            case 9: // Комплексный тест (N=100, K=10..100)
+                run_scenario_comparison_test(); 
+                break;
+
+            
+            case 10: // Выход
                 destroy_tree(root);
                 printf("Память очищена. Программа завершена.\n");
                 return 0;
-
-            case 10: // Комплексный тест (N=100, K=10..100)
-                run_scenario_comparison_test(); 
-                break;
                 
             default: 
                 printf("Ошибка: Неверный пункт меню.\n");

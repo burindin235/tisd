@@ -1,24 +1,6 @@
 digraph BST {
   node [shape=record, style=filled, fillcolor="#E6E6FF"];
-  "0x597ca37a0ac0" [label="{kuydosopxs | 20.07.2008}"];
-  "0x597ca37a0ac0" -> "0x597ca37a0bc0" [label="L"];
-  "0x597ca37a0bc0" [label="{ffgcejsyah | 28.01.2012}"];
-  "0x597ca37a0bc0" -> "0x597ca37a0d40" [label="L"];
-  "0x597ca37a0d40" [label="{bkvfbzveztvd | 07.02.2016}"];
-  "0x597ca37a0d40" -> "0x597ca37a1330" [label="L"];
-  "0x597ca37a1330" [label="{atfdnchjt | 07.06.2000}"];
-  "0x597ca37a0d40" -> "0x597ca37a0e40" [label="R"];
-  "0x597ca37a0e40" [label="{buuevpkulfz | 26.04.2007}"];
-  "0x597ca37a0bc0" -> "0x597ca37a13b0" [label="R"];
-  "0x597ca37a13b0" [label="{hscefzxe | 19.04.2009}"];
-  "0x597ca37a0ac0" -> "0x597ca37a0b40" [label="R"];
-  "0x597ca37a0b40" [label="{lgikuijelkn | 27.09.2018}"];
-  "0x597ca37a0b40" -> "0x597ca37a0c40" [label="R"];
-  "0x597ca37a0c40" [label="{verbodywoeja | 25.02.2015}"];
-  "0x597ca37a0c40" -> "0x597ca37a0cc0" [label="L"];
-  "0x597ca37a0cc0" [label="{oebughgyh | 09.01.2004}"];
-  "0x597ca37a0cc0" -> "0x597ca37a0dc0" [label="R"];
-  "0x597ca37a0dc0" [label="{stmwwjefpemx | 12.02.2021}"];
-  "0x597ca37a0c40" -> "0x597ca37a12b0" [label="R"];
-  "0x597ca37a12b0" [label="{vtxtpixvx | 17.08.2012}"];
+  "0x56c934b8db40" [label="{tglghemtfxax | 27.01.2014}"];
+  "0x56c934b8db40" -> "0x56c934b8dbc0" [label="L"];
+  "0x56c934b8dbc0" [label="{rxlbekhoraux | 14.09.2019}"];
 }
