@@ -7,17 +7,22 @@
 #include <time.h>
 #include <math.h>
 
-// --- Общие Константы ---
-#define TABLE_INIT_SIZE 23  // Начальный размер хеш-таблицы (простое число)
-#define MAX_KEY_LEN 10      // Максимальная длина ключевого слова
-#define MAX_VALUE_LEN 100   // Максимальная длина подсказки (HELP)
-#define MAX_COLLISIONS 3    // Максимально допустимое количество сравнений для рехеширования
-#define REHASH_FLAG 1000000 // Флаг для указания, что было рехеширование (добавляется к числу сравнений)
+// --- Константы ---
+#define TABLE_INIT_SIZE 23  
+#define MAX_KEY_LEN 10      
+#define MAX_VALUE_LEN 100   
 
-#define MAX_LOAD_SIZE 0.95 // макс заполнение при открытом хешировании
+// Условие для Метод Цепочек: Макс. длина цепочки перед рехешированием
+#define MAX_COLLISIONS 3
 
-// --- 1. Структуры для Метода Цепочек (Закрытая адресация) ---
+// Условие для Открытой Адресации: % заполнения
+#define MAX_LOAD_SIZE 0.70 
 
+#define NEXT_PRIME_MULTIPLIER 1.2
+
+#define REHASH_FLAG 1000000 
+
+// --- Структуры: Метод Цепочек ---
 typedef struct ChainNode {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
@@ -28,38 +33,31 @@ typedef struct ChainingTable {
     ChainNode **array;
     int size;
     int count;
-    int rehash_count;       // Счетчик реструктуризаций
+    int rehash_count;
 } ChainingTable;
 
-
-// --- 2. Структуры для Открытой Адресации ---
-
+// --- Структуры: Открытая Адресация ---
 typedef struct OpenAddressEntry {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
-    int is_occupied;        // 1: занято, 0: свободно, -1: удалено (Tombstone)
+    int is_occupied;        // 1: занято, 0: свободно, -1: удалено
 } OpenAddressEntry;
 
 typedef struct OpenAddressTable {
     OpenAddressEntry *array;
     int size;
     int count;
-    int deleted_count;      // Количество удаленных элементов (Tombstone)
-    int rehash_count;       // Счетчик реструктуризаций
+    int deleted_count;      
+    int rehash_count;       
 } OpenAddressTable;
 
-
-// --- 3. Структуры для Двоичного Дерева Поиска (BST) ---
-
+// --- Структуры: Деревья ---
 typedef struct Node {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
     struct Node *left;
     struct Node *right;
 } Node;
-
-
-// --- 4. Структуры для АВЛ-дерева ---
 
 typedef struct AVL_Node {
     char key[MAX_KEY_LEN];
@@ -69,60 +67,49 @@ typedef struct AVL_Node {
     struct AVL_Node *right;
 } AVL_Node;
 
-
-// --- Прототипы общих функций ---
+// --- Прототипы ---
 unsigned int hash_function(const char *key, int m);
 
-
-// --- Прототипы функций (Хеш-таблица: Метод Цепочек) ---
+// Метод цепочек
 ChainingTable *init_chaining_table();
 void free_chaining_table(ChainingTable *table);
-int insert_chaining_second_method(ChainingTable *table, const char *key, const char *value); // Возвращает сравнения (+REHASH_FLAG)
+int insert_chaining_second_method(ChainingTable *table, const char *key, const char *value); 
 const char *search_chaining_second_method(ChainingTable *table, const char *key, int *comparisons);
-int search_chain_count(ChainingTable *table, const char *key);
+int delete_chaining_second_method(ChainingTable *table, const char *key, int *comparisons); 
 void visualize_chaining(ChainingTable *table);
-// Новые/Обновленные функции
-int delete_chaining_second_method(ChainingTable *table, const char *key, int *comparisons); // Возвращает статус (0/1), сравнения в *comparisons
-size_t memory_chaining_total(ChainingTable *table); // Общая выделенная память
-size_t memory_chaining_used(ChainingTable *table); // Память, занятая полезными данными
+size_t memory_chaining_total(ChainingTable *table);
+size_t memory_chaining_used(ChainingTable *table);
 
-
-// --- Прототипы функций (Хеш-таблица: Открытая Адресация) ---
+// Открытая адресация
 OpenAddressTable *init_open_addressing_table();
 void free_open_addressing_table(OpenAddressTable *table);
-int insert_open_addressing_first_method(OpenAddressTable *table, const char *key, const char *value); // Возвращает сравнения (+REHASH_FLAG)
+int insert_open_addressing_first_method(OpenAddressTable *table, const char *key, const char *value); 
 const char *search_open_addressing_first_method(OpenAddressTable *table, const char *key, int *comparisons);
-int search_open_count(OpenAddressTable *table, const char *key);
+int delete_open_addressing_first_method(OpenAddressTable *table, const char *key, int *comparisons); 
 void visualize_open_addressing(OpenAddressTable *table);
-// Новые/Обновленные функции
-int delete_open_addressing_first_method(OpenAddressTable *table, const char *key, int *comparisons); // Возвращает статус (0/1), сравнения в *comparisons
-size_t memory_open_addressing_total(OpenAddressTable *table); // Общая выделенная память
-size_t memory_open_addressing_used(OpenAddressTable *table); // Память, занятая полезными данными
+size_t memory_open_addressing_total(OpenAddressTable *table);
+size_t memory_open_addressing_used(OpenAddressTable *table);
 
-
-// --- Прототипы функций (BST) ---
-Node *insert_bst(Node *root, const char *key, const char *value); // Старая версия для рехеширования
-Node *insert_bst_with_count(Node *root, const char *key, const char *value, int *comparisons); // Новая обертка
+// BST
+Node *insert_bst(Node *root, const char *key, const char *value); 
+Node *insert_bst_with_count(Node *root, const char *key, const char *value, int *comparisons);
 Node *search_bst(Node *root, const char *key);
+Node *delete_bst_with_count(Node *root, const char *key, int *comparisons);
+int search_bst_count(Node *root, const char *key);
 void free_bst(Node *root);
 void visualize_bst(Node *root);
-int search_bst_count(Node *root, const char *key);
-// Новые/Обновленные функции
-Node *delete_bst(Node *root, const char *key); // Старая версия
-Node *delete_bst_with_count(Node *root, const char *key, int *comparisons); // Новая обертка
+int count_nodes_bst(Node *root);
 size_t memory_bst(Node *root);
 
-
-// --- Прототипы функций (AVL) ---
-AVL_Node *insert_avl(AVL_Node *root, const char *key, const char *value); // Старая версия для рехеширования
-AVL_Node *insert_avl_with_count(AVL_Node *root, const char *key, const char *value, int *comparisons); // Новая обертка
+// AVL
+AVL_Node *insert_avl(AVL_Node *root, const char *key, const char *value);
+AVL_Node *insert_avl_with_count(AVL_Node *root, const char *key, const char *value, int *comparisons);
 AVL_Node *search_avl(AVL_Node *root, const char *key);
+AVL_Node *delete_avl_with_count(AVL_Node *root, const char *key, int *comparisons);
+int search_avl_count(AVL_Node *root, const char *key);
 void free_avl(AVL_Node *root);
 void visualize_avl(AVL_Node *root);
-int search_avl_count(AVL_Node *root, const char *key);
-// Новые/Обновленные функции
-AVL_Node *delete_avl(AVL_Node *root, const char *key); // Старая версия
-AVL_Node *delete_avl_with_count(AVL_Node *root, const char *key, int *comparisons); // Новая обертка
+int count_nodes_avl(AVL_Node *root);
 size_t memory_avl(AVL_Node *root);
 
-#endif // STRUCTS_H
+#endif
