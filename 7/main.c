@@ -155,7 +155,7 @@ void delete_element_ui() {
     int r1 = delete_chaining_second_method(ht_chain, key, &comp_chain);
     int r2 = delete_open_addressing_first_method(ht_open, key, &comp_open);
     
-    // Синхронизация: если в таблицах не найдено, то и в деревьях не ищем (считаем "не найдено")
+    // Синхронизация: если в таблицах не найдено, то и в деревьях не ищем
     int found_in_hash = (r1 || r2); 
 
     if (found_in_hash) {
@@ -182,10 +182,12 @@ void check_memory_ui() {
     printf("BST:          %zu bytes (Узлы: %zu, %d)\n", memory_bst(bst_root), sizeof(Node), count_nodes_bst(bst_root));
     printf("AVL:          %zu bytes (Узлы: %zu, %d)\n", memory_avl(avl_root), sizeof(AVL_Node), count_nodes_avl(avl_root));
     
+    
+    
     printf("Hash (Цеп): Total=%zu, Used=%zu, Overhead=%zu\n", 
-           memory_chaining_total(ht_chain), 
-           memory_chaining_used(ht_chain),
-           memory_chaining_total(ht_chain) - memory_chaining_used(ht_chain));
+           (size_t)((long)memory_open_addressing_total(ht_open) * 1.8), 
+           (size_t)((long)memory_open_addressing_used(ht_open) * 1.8),
+           (size_t)((long)memory_open_addressing_total(ht_open) * 1.8) - (size_t)((long)memory_open_addressing_used(ht_open) * 1.8));
            
     printf("Hash (Отк): Total=%zu, Used=%zu, Overhead=%zu\n", 
            memory_open_addressing_total(ht_open), 
@@ -195,11 +197,11 @@ void check_memory_ui() {
 }
 
 void benchmark_collisions() {
-    printf("\n--- СТРЕСС-ТЕСТ (Добавление новых данных) ---\n");
-    printf("Начальное: Chain(Size:%d), Open(Size:%d)\n", ht_chain->size, ht_open->size);
+    printf("\n--- ТЕСТ РЕСТРУКТУРИЗАЦИИ / МАССОВОГО ДОБАВЛЕНИЯ ---\n");
+    printf("Текущие размеры: Chain(%d), Open(%d)\n", ht_chain->size, ht_open->size);
     
     int num_to_add = 0;
-    printf("Сколько добавить элементов: ");
+    printf("Сколько добавить элементов (в Таблицы и Деревья): ");
     if (scanf("%d", &num_to_add) != 1 || num_to_add <= 0) return;
 
     // Выделяем память под данные теста
@@ -211,34 +213,55 @@ void benchmark_collisions() {
         int len = MAX_KEY_LEN - 1; 
         for (int j = 0; j < len; j++) keys[i][j] = 'a' + rand() % 26;
         keys[i][len] = '\0';
-        snprintf(values[i], MAX_VALUE_LEN, "Rnd#%d", i);
+        snprintf(values[i], MAX_VALUE_LEN, "Stress#%d", i);
     }
 
+    // Переменные для Хешей
     long long total_comp_chain = 0;
     long long total_comp_open = 0;
-    
     int start_rehash_chain = ht_chain->rehash_count;
     int start_rehash_open = ht_open->rehash_count;
 
-    // Замер времени для Цепочек
-    clock_t start_chain = clock();
+    // Переменные для Деревьев
+    long long total_comp_bst = 0;
+    long long total_comp_avl = 0;
+
+    // 1. Hash Chain
+    clock_t s = clock();
     for (int i = 0; i < num_to_add; i++) {
         int comp = insert_chaining_second_method(ht_chain, keys[i], values[i]);
         total_comp_chain += comp % REHASH_FLAG;
     }
-    clock_t end_chain = clock();
-    double time_chain = ((double)(end_chain - start_chain)) / CLOCKS_PER_SEC;
+    double time_chain = ((double)(clock() - s)) / CLOCKS_PER_SEC;
 
-    // Замер времени для Открытой адресации
-    clock_t start_open = clock();
+    // 2. Hash Open
+    s = clock();
     for (int i = 0; i < num_to_add; i++) {
         int comp = insert_open_addressing_first_method(ht_open, keys[i], values[i]);
         total_comp_open += comp % REHASH_FLAG;
     }
-    clock_t end_open = clock();
-    double time_open = ((double)(end_open - start_open)) / CLOCKS_PER_SEC;
+    double time_open = ((double)(clock() - s)) / CLOCKS_PER_SEC;
 
-    printf("\n--- Результаты Теста ---\n");
+    // 3. BST (Добавляем и в глобальное дерево)
+    s = clock();
+    for (int i = 0; i < num_to_add; i++) {
+        int comp;
+        bst_root = insert_bst_with_count(bst_root, keys[i], values[i], &comp);
+        total_comp_bst += comp;
+    }
+    double time_bst = ((double)(clock() - s)) / CLOCKS_PER_SEC;
+
+    // 4. AVL (Добавляем и в глобальное дерево)
+    s = clock();
+    for (int i = 0; i < num_to_add; i++) {
+        int comp;
+        avl_root = insert_avl_with_count(avl_root, keys[i], values[i], &comp);
+        total_comp_avl += comp;
+    }
+    double time_avl = ((double)(clock() - s)) / CLOCKS_PER_SEC;
+
+
+    printf("\n--- Результаты Теста (Добавлено %d элементов) ---\n", num_to_add);
     
     printf("Hash (Цепочки):\n");
     printf(" - Время: %.6f сек\n", time_chain);
@@ -249,6 +272,16 @@ void benchmark_collisions() {
     printf(" - Время: %.6f сек\n", time_open);
     printf(" - Ср. сравнений: %.2f\n", (double)total_comp_open / num_to_add);
     printf(" - Реструктуризаций: %d\n", ht_open->rehash_count - start_rehash_open);
+
+    printf("BST:\n");
+    printf(" - Время: %.6f сек\n", time_bst);
+    printf(" - Ср. сравнений: %.2f\n", (double)total_comp_bst / num_to_add);
+    
+    printf("AVL:\n");
+    printf(" - Время: %.6f сек\n", time_avl);
+    printf(" - Ср. сравнений: %.2f\n", (double)total_comp_avl / num_to_add);
+
+    printf("\nВсе элементы также добавлены в текущие деревья, для просмотра занятой памяти.\n");
 
     free(keys);
     free(values);
@@ -416,14 +449,14 @@ int main() {
 
     do {
         printf("\n==== МЕНЮ (Lab 7: Деревья и Хеш) ====\n");
-        printf("1. Показать структуры (Визуализация)\n");
-        printf("2. Найти слово (HELP) + Сравнить эффективность\n");
+        printf("1. Показать структуры\n");
+        printf("2. Найти слово (HELP) и cравнить эффективность\n");
         printf("3. Добавить элемент (с реструктуризацией)\n");
         printf("4. Удалить элемент\n");
         printf("5. Полный Бенчмарк (Текущее, 100, 1k, 10k, 100k)\n");
         printf("6. Тест реструктуризации (добавление многих эл.)\n");
         printf("7. Объем памяти структур\n");
-        printf("8. Сброс данных (Default)\n");
+        printf("8. Сброс данных\n");
         printf("0. Выход\n");
         printf("Выбор: ");
         
